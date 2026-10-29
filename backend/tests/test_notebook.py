@@ -88,9 +88,9 @@ def test_template_is_global_optional_and_persistent(client):
     assert client.put(path, json={"labels": ["note", "hiragana"]}).status_code == 200
     cid = category(client, "Verb")
     assert client.post(f"/api/v1/categories/{cid}/entries", json={"word": "食べる"}).status_code == 201
-    assert client.get(path).json() == {"labels": ["note", "hiragana"]}
+    assert client.get(path).json() == {"labels": ["note", "hiragana"], "custom_labels": []}
     assert client.put(path, json={"labels": []}).status_code == 200
-    assert client.get(path).json() == {"labels": []}
+    assert client.get(path).json() == {"labels": [], "custom_labels": []}
 
 
 def test_search_pagination_and_missing_category(client):
@@ -104,3 +104,73 @@ def test_search_pagination_and_missing_category(client):
     assert response["total"] == 3 and response["items"][0]["word"] == "読む"
     assert client.get("/api/v1/categories/999999/entries").status_code == 404
     assert client.post("/api/v1/categories/999999/entries", json={"word": "test"}).status_code == 404
+
+
+def test_custom_fields_round_trip_partial_update_and_removal(client):
+    cid = category(client, "Custom")
+    url = f"/api/v1/categories/{cid}/entries"
+    fields = [{"label": "  Example   sentence  ", "value": "  パンを食べます。  "},
+              {"label": "Meaning", "value": "eat"}, {"label": "Blank", "value": " "}]
+    created = client.post(url, json={"word": "食べる", "hiragana": "たべる", "custom_fields": fields})
+    assert created.status_code == 201, created.text
+    entry = created.json()
+    expected = [{"label": "Example sentence", "value": "パンを食べます。"}, {"label": "Meaning", "value": "eat"}]
+    assert entry["custom_fields"] == expected
+    path = f'/api/v1/entries/{entry["id"]}'
+    assert client.patch(path, json={"note": "fixed note"}).json()["custom_fields"] == expected
+    changed = client.patch(path, json={"custom_fields": [{"label": "Meaning", "value": "to eat"}]}).json()
+    assert changed["hiragana"] == "たべる" and changed["note"] == "fixed note"
+    assert changed["custom_fields"] == [{"label": "Meaning", "value": "to eat"}]
+    assert client.get(url).json()["items"][0]["custom_fields"] == changed["custom_fields"]
+    assert client.patch(path, json={"custom_fields": []}).json()["custom_fields"] == []
+
+
+@pytest.mark.parametrize("labels", [["Meaning", " meaning "], ["Ｍｅａｎｉｎｇ", "Meaning"],
+                                   ["Hiragana"], [" WORD "], ["Ｒｏｍａｊｉ"], [""], ["x" * 81], [123]])
+def test_custom_label_validation_for_entries_and_templates(client, labels):
+    cid = category(client, "Validation")
+    response = client.post(f"/api/v1/categories/{cid}/entries", json={
+        "word": "test", "custom_fields": [{"label": label, "value": "value"} for label in labels],
+    })
+    assert response.status_code == 422, response.text
+    template = client.put("/api/v1/vocabulary/settings/default-template", json={"labels": [], "custom_labels": labels})
+    assert template.status_code == 422, template.text
+    assert client.get(f"/api/v1/categories/{cid}/entries").json()["total"] == 0
+
+
+def test_one_hundred_custom_fields_search_pagination_and_template(client):
+    cid = category(client, "Many fields")
+    url = f"/api/v1/categories/{cid}/entries"
+    fields = [{"label": f"Field {i}", "value": "100% literal" if i < 2 else f"value {i}"} for i in range(100)]
+    response = client.post(url, json={"word": "test", "custom_fields": fields})
+    assert response.status_code == 201, response.text
+    assert len(response.json()["custom_fields"]) == 100
+    result = client.get(url, params={"q": "%", "limit": 1}).json()
+    assert result["total"] == 1 and len(result["items"][0]["custom_fields"]) == 100
+    assert client.get(url, params={"q": "FIELD 99"}).json()["total"] == 1
+    assert client.get(url, params={"q": "_"}).json()["total"] == 0
+    assert client.post(url, json={"word": "too many", "custom_fields": fields + [{"label": "Extra", "value": "v"}]}).status_code == 422
+    template = {"labels": ["hiragana", "note"], "custom_labels": [field["label"] for field in fields]}
+    assert client.put("/api/v1/vocabulary/settings/default-template", json=template).status_code == 200
+    assert client.get("/api/v1/vocabulary/settings/default-template").json() == template
+    assert client.put("/api/v1/vocabulary/settings/default-template", json={"labels": [], "custom_labels": []}).status_code == 200
+    assert len(client.get(url).json()["items"][0]["custom_fields"]) == 100
+
+
+def test_custom_fields_independence_and_cascade(client):
+    from app.modules.vocabulary.models import entry_fields
+    from sqlalchemy import select, func
+    a, b = category(client, "Verb"), category(client, "Review")
+    def add(cid, value):
+        return client.post(f"/api/v1/categories/{cid}/entries", json={
+            "word": "食べる", "custom_fields": [{"label": "Meaning", "value": value}],
+        }).json()
+    first, second = add(a, "eat"), add(b, "to eat")
+    client.patch(f'/api/v1/entries/{first["id"]}', json={"custom_fields": [{"label": "Meaning", "value": "changed"}]})
+    assert client.get(f"/api/v1/categories/{b}/entries").json()["items"][0]["custom_fields"][0]["value"] == "to eat"
+    assert client.delete(f"/api/v1/categories/{a}").status_code == 204
+    with service.database().connect() as connection:
+        assert connection.scalar(select(func.count()).select_from(entry_fields)) == 1
+    assert client.delete(f'/api/v1/entries/{second["id"]}').status_code == 204
+    with service.database().connect() as connection:
+        assert connection.scalar(select(func.count()).select_from(entry_fields)) == 0

@@ -2,7 +2,8 @@ from sqlalchemy import select, insert, update, delete, func, or_
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.db.session import get_engine
-from app.modules.vocabulary.models import categories, entries, settings, DEFAULT_LABELS
+from app.modules.vocabulary.models import categories, entries, settings, entry_fields, DEFAULT_LABELS
+from app.modules.vocabulary.entry_field_store import attach_fields, replace_fields
 
 
 class NotebookError(Exception):
@@ -71,16 +72,25 @@ def list_entries(category_id, query="", limit=100, offset=0):
         require_category(connection, category_id)
         conditions = [entries.c.category_id == category_id]
         if query.strip():
-            conditions.append(or_(*[
+            fixed_matches = [
                 entries.c[field].icontains(query.strip(), autoescape=True)
                 for field in ("word", "kanji", "hiragana", "katakana", "romaji", "note")
-            ]))
+            ]
+            custom_match = select(entry_fields.c.id).where(
+                entry_fields.c.entry_id == entries.c.id,
+                or_(entry_fields.c.label.icontains(query.strip(), autoescape=True),
+                    entry_fields.c.value.icontains(query.strip(), autoescape=True)),
+            ).exists()
+            conditions.append(or_(*fixed_matches, custom_match))
         total = connection.scalar(select(func.count()).select_from(entries).where(*conditions))
         statement = select(entries).where(*conditions).order_by(entries.c.id.desc()).limit(limit).offset(offset)
-        return {"items": [dict(row) for row in connection.execute(statement).mappings()], "total": total}
+        items = attach_fields(connection, connection.execute(statement).mappings())
+        return {"items": items, "total": total}
 
 
 def create_entry(category_id, data):
+    data = dict(data)
+    fields = data.pop("custom_fields", [])
     with database().begin() as connection:
         # Hold the category while inserting so a simultaneous delete cannot orphan an entry.
         category = connection.execute(
@@ -91,10 +101,13 @@ def create_entry(category_id, data):
         row = connection.execute(
             insert(entries).values(category_id=category_id, **data).returning(entries)
         ).mappings().one()
-        return dict(row)
+        replace_fields(connection, row["id"], fields)
+        return attach_fields(connection, [row])[0]
 
 
 def update_entry(entry_id, data):
+    data = dict(data)
+    fields = data.pop("custom_fields", None)
     with database().begin() as connection:
         row = connection.execute(
             update(entries).where(entries.c.id == entry_id)
@@ -102,7 +115,11 @@ def update_entry(entry_id, data):
         ).mappings().first()
         if row is None:
             raise NotebookError(404, "Entry not found.")
-        return dict(row)
+        # An omitted custom_fields key leaves existing fields untouched.
+        # An explicitly empty list removes them.
+        if fields is not None:
+            replace_fields(connection, entry_id, fields)
+        return attach_fields(connection, [row])[0]
 
 
 def delete_entry(entry_id):
@@ -114,14 +131,17 @@ def delete_entry(entry_id):
 
 def get_template():
     with database().connect() as connection:
-        labels = connection.scalar(select(settings.c.default_labels).where(settings.c.id == 1))
-        return {"labels": labels if labels is not None else DEFAULT_LABELS}
+        row = connection.execute(select(settings).where(settings.c.id == 1)).mappings().first()
+        if row is None:
+            return {"labels": DEFAULT_LABELS, "custom_labels": []}
+        return {"labels": row["default_labels"], "custom_labels": row["custom_labels"]}
 
 
-def save_template(labels):
+def save_template(labels, custom_labels):
     with database().begin() as connection:
-        statement = pg_insert(settings).values(id=1, default_labels=labels)
+        statement = pg_insert(settings).values(id=1, default_labels=labels, custom_labels=custom_labels)
         connection.execute(statement.on_conflict_do_update(
-            index_elements=[settings.c.id], set_={"default_labels": labels},
+            index_elements=[settings.c.id],
+            set_={"default_labels": labels, "custom_labels": custom_labels},
         ))
-    return {"labels": labels}
+    return {"labels": labels, "custom_labels": custom_labels}

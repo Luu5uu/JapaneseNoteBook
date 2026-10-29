@@ -60,4 +60,4 @@ def get_template():
 
 @router.put("/vocabulary/settings/default-template", response_model=DefaultTemplate)
 def set_template(data: DefaultTemplate):
-    return service.save_template(data.labels)
+    return service.save_template(data.labels, data.custom_labels)

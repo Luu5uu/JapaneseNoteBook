@@ -1,0 +1,235 @@
+.script-breadcrumb,
+.script-actions,
+.script-section-heading,
+.script-heading {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.script-breadcrumb {
+  margin: 16px 0 30px;
+  color: var(--muted);
+}
+.script-breadcrumb button {
+  background: none;
+  border: 0;
+  color: var(--green);
+  padding: 4px;
+}
+.script-heading {
+  justify-content: space-between;
+  margin-bottom: 32px;
+  flex-wrap: wrap;
+}
+.script-heading h1 {
+  font-family: Georgia, serif;
+  font-size: clamp(30px, 5vw, 46px);
+  margin: 10px 0;
+  overflow-wrap: anywhere;
+}
+.script-heading p,
+.script-section-heading p,
+.script-footnote {
+  color: #657267;
+  line-height: 1.6;
+}
+.script-fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.script-section {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 24px;
+  min-width: 0;
+}
+.script-section h2 {
+  font-size: 18px;
+  margin: 0 0 16px;
+}
+.script-section-heading {
+  justify-content: space-between;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.script-section-heading p {
+  margin: 0;
+}
+.script-section label {
+  display: grid;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+}
+.script-section input,
+.script-section textarea,
+.script-section select {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #ced8cd;
+  border-radius: 8px;
+  padding: 11px;
+  background: #fff;
+  color: #28372e;
+}
+.script-section textarea {
+  resize: vertical;
+}
+.script-role-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+.script-role {
+  display: flex;
+  align-items: end;
+  gap: 8px;
+}
+.script-role label {
+  flex: 1;
+  min-width: 0;
+}
+.script-grid-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.script-grid {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: auto;
+}
+.script-grid caption {
+  text-align: left;
+  padding: 16px;
+  color: var(--muted);
+}
+.script-grid th,
+.script-grid td {
+  border-bottom: 1px solid var(--line);
+  border-right: 1px solid var(--line);
+  padding: 18px;
+  vertical-align: top;
+  min-width: 240px;
+  max-width: 480px;
+  overflow-wrap: anywhere;
+}
+.script-grid th:first-child {
+  min-width: 190px;
+  width: 190px;
+}
+.script-grid thead th {
+  background: #eaf0e7;
+  text-align: left;
+}
+.script-grid tbody th {
+  background: #fafbf7;
+  text-align: left;
+  font-size: 14px;
+  font-weight: 500;
+}
+.script-grid tbody th label {
+  margin-top: 12px;
+}
+.script-grid td label + label {
+  margin-top: 12px;
+}
+.script-active-cell {
+  background: #f6f9f2;
+}
+.script-silent {
+  display: block;
+  text-align: center;
+  color: #bbc4b8;
+}
+.script-turn-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 12px;
+}
+.script-turn-actions button {
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 5px 8px;
+  color: var(--green);
+}
+.script-actions {
+  justify-content: flex-end;
+  margin: 24px 0;
+  flex-wrap: wrap;
+}
+.script-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 20px;
+}
+.script-card {
+  text-align: left;
+  color: inherit;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 28px;
+  overflow-wrap: anywhere;
+}
+.script-card:hover {
+  border-color: #78967b;
+  background: #f4f7ef;
+}
+.script-card h2 {
+  font-family: Georgia, serif;
+  font-size: 25px;
+}
+.script-card p,
+.script-reading {
+  color: #657267;
+  font-size: 14px;
+}
+.script-line-text {
+  white-space: pre-wrap;
+  line-height: 1.8;
+  font-size: 19px;
+  margin: 0;
+}
+.script-reading {
+  white-space: pre-wrap;
+}
+.script-error {
+  border-left: 3px solid #ad493b;
+  padding: 14px;
+  color: #8e3028;
+  background: #fff1eb;
+}
+.script-empty {
+  padding: 50px 24px;
+  text-align: center;
+  border: 1px dashed #b7c6b2;
+  border-radius: 16px;
+}
+.script-footnote {
+  margin-top: 24px;
+}
+@media (max-width: 600px) {
+  .script-section {
+    padding: 16px;
+  }
+  .script-role-list {
+    grid-template-columns: 1fr;
+  }
+  .script-heading {
+    align-items: flex-start;
+  }
+}
+
+.script-turn-actions {
+  flex-wrap: wrap;
+}
+.script-turn-actions button {
+  white-space: nowrap;
+}

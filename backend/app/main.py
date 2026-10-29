@@ -10,6 +10,7 @@ from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from app.db.session import get_engine
 from app.modules.vocabulary.router import router as vocabulary_router
 from app.modules.vocabulary.service import NotebookError
+from app.modules.script_practice.scripts.router import router as scripts_router
 
 
 @asynccontextmanager
@@ -23,6 +24,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="JapaneseNoteBook API", version="0.1.0", lifespan=lifespan)
 app.include_router(vocabulary_router, prefix="/api/v1")
+app.include_router(scripts_router, prefix="/api/v1")
 
 
 @app.exception_handler(NotebookError)
